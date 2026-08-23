@@ -515,6 +515,15 @@ async function storageList(prefix){
     statusBox.textContent = msg;
   }
 
+  function deviceAlreadyChecked(sessionId){
+    try{ return !!localStorage.getItem('attendance_checked_' + sessionId); }
+    catch(e){ return false; }
+  }
+  function markDeviceChecked(sessionId){
+    try{ localStorage.setItem('attendance_checked_' + sessionId, '1'); }
+    catch(e){ /* storage unavailable — single-use code still applies */ }
+  }
+
   checkinBtn.addEventListener('click', async ()=>{
     const name = nameInput.value.trim();
     const code = codeInput.value.trim().toUpperCase();
@@ -532,6 +541,11 @@ async function storageList(prefix){
         return;
       }
       const session = JSON.parse(r.value);
+      const deviceKey = session.sessionId;
+      if(deviceAlreadyChecked(deviceKey)){
+        setStatus('err', "This device already checked in for this session. If that wasn't you, tell your instructor.");
+        return;
+      }
       const now = Date.now();
       if(now > session.expiresAt){
         setStatus('err', 'That code just expired — grab the new one from the display.');
@@ -555,6 +569,7 @@ async function storageList(prefix){
       await storageSet(usedKey, JSON.stringify({time: now}));
       const key = 'attendance:' + session.date + ':' + session.sessionId + ':' + sanitize(name);
       await storageSet(key, JSON.stringify({name, time: now, code}));
+      markDeviceChecked(deviceKey);
       setStatus('ok', "You're marked present for " + session.className + '. Nice.');
       nameInput.disabled = true;
       codeInput.disabled = true;
