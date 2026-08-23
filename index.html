@@ -1,3 +1,9 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MATH 1050-008 Attendance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -54,7 +60,6 @@
   .thud{animation:thud .35s ease;}
   @keyframes thud{0%{transform:scale(1);}35%{transform:scale(1.06);box-shadow:0 0 0 6px rgba(228,194,75,0.12) inset;}100%{transform:scale(1);}}
 
-
   .roster-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
   .roster-head h2{font-family:var(--font-display);font-size:1.05rem;margin:0;}
   .count{font-family:var(--font-mono);color:var(--brass);font-size:0.85rem;}
@@ -71,7 +76,12 @@
 
   .fine{font-size:0.72rem;color:var(--ink-dim);line-height:1.5;margin-top:4px;}
   .code-hint{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.08em;}
+
+  .setup-banner{background:#3A1414;border:1px solid #6B2020;color:#FFD8D0;border-radius:10px;padding:14px 16px;font-size:0.82rem;line-height:1.6;margin-bottom:16px;}
+  .setup-banner code{background:#000;padding:1px 5px;border-radius:4px;font-family:var(--font-mono);font-size:0.78rem;}
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <div class="masthead">
@@ -79,6 +89,12 @@
       <span class="eyebrow">Roll Call</span>
       <h1>Attendance Ledger</h1>
     </div>
+  </div>
+
+  <div class="setup-banner" id="setupBanner" style="display:none;">
+    This page isn't connected to a database yet. Edit <code>SUPABASE_CONFIG</code> near the top of the
+    <code>&lt;script&gt;</code> in this file with your own Supabase project details, then reload. See the
+    comment block right above it for step-by-step setup instructions.
   </div>
 
   <div class="tabs">
@@ -155,7 +171,66 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// ============================================================================
+// SUPABASE SETUP — do this once before the page will work.
+//
+// 1. Go to https://supabase.com, sign up (free), and create a New Project.
+//    Pick any name, set a database password (you won't need it again for this),
+//    pick any region, and click Create. Wait a minute or two while it provisions.
+// 2. Once it's ready, open the SQL Editor (left sidebar) and run this, then
+//    click "Run":
+//
+//      create table kv (
+//        key text primary key,
+//        value text
+//      );
+//      alter table kv disable row level security;
+//
+//    Heads up: disabling row-level security makes this table readable and
+//    writable by anyone with your project's API key — same "casual
+//    deterrent, not real security" trust level as the PIN already on this
+//    page. Fine for a low-stakes classroom tool; don't store anything
+//    sensitive in it.
+// 3. In the left sidebar go to Project Settings > API. Copy the "Project URL"
+//    and the "anon public" API key.
+// 4. Paste both into SUPABASE_CONFIG below.
+// 5. Push this file to your GitHub repo. GitHub Pages serves static files
+//    directly, so no build step is needed.
+// ============================================================================
+const SUPABASE_CONFIG = {
+  url: "https://bikaitqtujxjopnftljz.supabase.co",
+  anonKey: "sb_publishable_nz6lcgbV_KV1I4qu9ZSYxw_i00n9_Q_"
+};
+
+const configIsPlaceholder = SUPABASE_CONFIG.url === "PASTE_YOUR_PROJECT_URL";
+if(configIsPlaceholder){
+  document.getElementById('setupBanner').style.display = 'block';
+}
+
+const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+
+// Thin wrapper so the rest of this file can read/write data the same way
+// regardless of what's powering it underneath.
+async function storageGet(key){
+  const { data, error } = await supabase.from('kv').select('value').eq('key', key).maybeSingle();
+  if(error){ console.error('storage get failed', error); return null; }
+  if(!data) return null;
+  return { key, value: data.value };
+}
+async function storageSet(key, value){
+  const { error } = await supabase.from('kv').upsert({ key, value });
+  if(error){ console.error('storage set failed', error); throw error; }
+  return { key, value };
+}
+async function storageList(prefix){
+  const { data, error } = await supabase.from('kv').select('key').like('key', prefix + '%');
+  if(error){ console.error('storage list failed', error); return { keys: [] }; }
+  return { keys: (data || []).map(row => row.key) };
+}
+
 (function(){
   const ROTATE_MS = 20000;
   const CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"; // no 0/O/1/I/L
@@ -207,7 +282,7 @@
   // To change the PIN: compute the SHA-256 hex digest of your new PIN and paste it below.
   // In any browser console: crypto.subtle.digest('SHA-256', new TextEncoder().encode('yourPIN'))
   //   .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
-  // This still isn't real security — it just stops casual view-source snooping. See prior note.
+  // This still isn't real security — it just stops casual view-source snooping.
   const INSTRUCTOR_PIN_HASH = "58f7026c96568f1330f6a05c604aa770e66b1b04e8d463936da8fb95fdf3296a";
   const lockCard = document.getElementById('lockCard');
   const pinInput = document.getElementById('pinInput');
@@ -281,7 +356,7 @@
 
   async function writeSession(session){
     try{
-      await window.storage.set('session:current', JSON.stringify(session), true);
+      await storageSet('session:current', JSON.stringify(session));
     }catch(e){ console.error('storage set failed', e); }
   }
 
@@ -317,7 +392,7 @@
     if(!currentSession) return;
     try{
       const prefix = 'attendance:' + currentSession.date + ':' + currentSession.sessionId + ':';
-      const listing = await window.storage.list(prefix, true);
+      const listing = await storageList(prefix);
       if(!listing || !listing.keys || listing.keys.length === 0){
         rosterList.innerHTML = '<div class="empty">No check-ins yet.</div>';
         rosterCount.textContent = '0';
@@ -328,7 +403,7 @@
       const entries = [];
       for(const k of listing.keys){
         try{
-          const r = await window.storage.get(k, true);
+          const r = await storageGet(k);
           if(r && r.value) entries.push(JSON.parse(r.value));
         }catch(e){ /* skip missing */ }
       }
@@ -410,7 +485,7 @@
 
   async function loadQuestion(){
     try{
-      const r = await window.storage.get('session:current', true);
+      const r = await storageGet('session:current');
       if(r && r.value){
         const session = JSON.parse(r.value);
         const now = Date.now();
@@ -451,7 +526,7 @@
     checkinBtn.disabled = true;
     let success = false;
     try{
-      const r = await window.storage.get('session:current', true);
+      const r = await storageGet('session:current');
       if(!r || !r.value){
         setStatus('err', 'No active session found. Ask your instructor to start one.');
         return;
@@ -472,14 +547,14 @@
       }
       const usedKey = 'codeused:' + session.date + ':' + session.sessionId + ':' + session.code;
       let already = null;
-      try{ already = await window.storage.get(usedKey, true); }catch(e){ already = null; }
+      try{ already = await storageGet(usedKey); }catch(e){ already = null; }
       if(already && already.value){
         setStatus('err', 'Someone already checked in with this exact code — wait for the display to refresh and use the new one.');
         return;
       }
-      await window.storage.set(usedKey, JSON.stringify({time: now}), true);
+      await storageSet(usedKey, JSON.stringify({time: now}));
       const key = 'attendance:' + session.date + ':' + session.sessionId + ':' + sanitize(name);
-      await window.storage.set(key, JSON.stringify({name, time: now, code}), true);
+      await storageSet(key, JSON.stringify({name, time: now, code}));
       setStatus('ok', "You're marked present for " + session.className + '. Nice.');
       nameInput.disabled = true;
       codeInput.disabled = true;
@@ -495,3 +570,5 @@
   });
 })();
 </script>
+</body>
+</html>
