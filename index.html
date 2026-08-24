@@ -161,8 +161,8 @@
       <div class="status info show" id="questionDisplay">Open this tab once the instructor starts a session to see the question.</div>
       <label for="studentAnswer">Your answer</label>
       <input type="text" id="studentAnswer" placeholder="Answer the question above">
-      <label for="studentName">Your name</label>
-      <input type="text" id="studentName" placeholder="First Last">
+      <label for="studentUid">UID, e.g., u1234567</label>
+      <input type="text" id="studentUid" placeholder="u1234567">
       <label for="studentCode">Code from the display</label>
       <input type="text" id="studentCode" placeholder="e.g. 7K3PQR" style="text-transform:uppercase;">
       <button class="btn-primary" id="checkinBtn">Check in</button>
@@ -410,7 +410,7 @@ async function storageList(prefix){
       entries.sort((a,b)=> a.time - b.time);
       rosterCount.textContent = String(entries.length);
       rosterList.innerHTML = entries.map(e =>
-        '<div class="roster-row"><span>'+escapeHtml(e.name)+'</span><span class="time">'+fmtTime(e.time)+'</span></div>'
+        '<div class="roster-row"><span>'+escapeHtml(e.uid)+'</span><span class="time">'+fmtTime(e.time)+'</span></div>'
       ).join('');
       currentRoster = entries;
       exportBtn.disabled = sessionActive || entries.length === 0;
@@ -424,9 +424,13 @@ async function storageList(prefix){
 
   function exportCsv(){
     if(!currentSession || currentRoster.length === 0) return;
-    const rows = [['Name','Date','Check-in time','Code used']];
+    const assignmentName = currentSession.className + ' Attendance ' + currentSession.date;
+    const rows = [['Student','ID','SIS User ID','SIS Login ID','Section', assignmentName]];
     currentRoster.forEach(e=>{
-      rows.push([e.name, currentSession.date, new Date(e.time).toLocaleString(), e.code]);
+      // "Student" just needs at least one letter for Canvas to accept the row — since we
+      // only collect UIDs, not names, the UID goes there too. SIS Login ID is what Canvas
+      // actually matches against your roster.
+      rows.push([e.uid, '', '', e.uid, '', '1']);
     });
     const csv = rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
@@ -434,7 +438,7 @@ async function storageList(prefix){
     const a = document.createElement('a');
     const safeClass = sanitize(currentSession.className || 'class');
     a.href = url;
-    a.download = 'attendance-' + safeClass + '-' + currentSession.date + '.csv';
+    a.download = 'canvas-attendance-' + safeClass + '-' + currentSession.date + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -476,7 +480,7 @@ async function storageList(prefix){
   });
 
   // ---------- Student: check-in ----------
-  const nameInput = document.getElementById('studentName');
+  const uidInput = document.getElementById('studentUid');
   const codeInput = document.getElementById('studentCode');
   const answerInput = document.getElementById('studentAnswer');
   const questionDisplay = document.getElementById('questionDisplay');
@@ -525,10 +529,10 @@ async function storageList(prefix){
   }
 
   checkinBtn.addEventListener('click', async ()=>{
-    const name = nameInput.value.trim();
+    const uid = uidInput.value.trim();
     const code = codeInput.value.trim().toUpperCase();
     const answer = answerInput.value.trim();
-    if(!name){ setStatus('err', 'Enter your name first.'); return; }
+    if(!uid){ setStatus('err', 'Enter your UID first.'); return; }
     if(!answer){ setStatus('err', 'Answer the question above.'); return; }
     if(!code){ setStatus('err', 'Enter the code shown on the display.'); return; }
 
@@ -559,11 +563,11 @@ async function storageList(prefix){
         setStatus('err', "That answer doesn't look right — check the question and try again.");
         return;
       }
-      const key = 'attendance:' + session.date + ':' + session.sessionId + ':' + sanitize(name);
-      await storageSet(key, JSON.stringify({name, time: now, code}));
+      const key = 'attendance:' + session.date + ':' + session.sessionId + ':' + sanitize(uid);
+      await storageSet(key, JSON.stringify({uid, time: now, code}));
       markDeviceChecked(deviceKey);
       setStatus('ok', "You're marked present for " + session.className + '. Nice.');
-      nameInput.disabled = true;
+      uidInput.disabled = true;
       codeInput.disabled = true;
       answerInput.disabled = true;
       checkinBtn.textContent = 'Checked in ✓';
