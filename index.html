@@ -432,12 +432,15 @@ async function storageList(prefix){
   function exportCsv(){
     if(!currentSession || currentRoster.length === 0) return;
     const assignmentName = 'Check-in ' + formatMD(currentSession.date);
-    const rows = [['Student','ID','SIS User ID','SIS Login ID','Root Account','Section', assignmentName]];
+    const rows = [
+      ['Student','ID','SIS User ID','SIS Login ID','Root Account','Section', assignmentName],
+      ['Points Possible','', '', '', '', '', '1']
+    ];
     currentRoster.forEach(e=>{
-      // "Student" just needs at least one letter for Canvas to accept the row — since we
-      // only collect UIDs, not names, the UID goes there too. SIS Login ID is what Canvas
-      // actually matches against your roster.
-      rows.push([e.uid, '', '', e.uid, 'utah.instructure.com', 'MATH 1050-008 Fall 2026', '1']);
+      // ID (Canvas's internal numeric ID) is safe to leave blank. Student needs at least
+      // one character for Canvas to reliably accept and match the row, so the UID goes
+      // there too — SIS User ID and SIS Login ID are what Canvas actually matches on.
+      rows.push([e.uid, '', e.uid, e.uid, 'utah.instructure.com', 'MATH 1050-008 Fall 2026', '1']);
     });
     const csv = rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
