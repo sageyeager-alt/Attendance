@@ -409,9 +409,11 @@ async function storageList(prefix){
       }
       entries.sort((a,b)=> a.time - b.time);
       rosterCount.textContent = String(entries.length);
-      rosterList.innerHTML = entries.map(e =>
-        '<div class="roster-row"><span>'+escapeHtml(e.uid)+'</span><span class="time">'+fmtTime(e.time)+'</span></div>'
-      ).join('');
+      if(entries.length === 1){
+        rosterList.innerHTML = '<div class="empty">1 student checked in.</div>';
+      } else {
+        rosterList.innerHTML = '<div class="empty">'+entries.length+' students checked in.</div>';
+      }
       currentRoster = entries;
       exportBtn.disabled = sessionActive || entries.length === 0;
     }catch(e){ console.error('roster refresh failed', e); }
@@ -422,15 +424,20 @@ async function storageList(prefix){
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
   }
 
+  function formatMD(isoDate){
+    const [y, m, d] = isoDate.split('-').map(Number);
+    return m + '/' + d;
+  }
+
   function exportCsv(){
     if(!currentSession || currentRoster.length === 0) return;
-    const assignmentName = currentSession.className + ' Attendance ' + currentSession.date;
-    const rows = [['Student','ID','SIS User ID','SIS Login ID','Section', assignmentName]];
+    const assignmentName = 'Check-in ' + formatMD(currentSession.date);
+    const rows = [['Student','ID','SIS User ID','SIS Login ID','Root Account','Section', assignmentName]];
     currentRoster.forEach(e=>{
       // "Student" just needs at least one letter for Canvas to accept the row — since we
       // only collect UIDs, not names, the UID goes there too. SIS Login ID is what Canvas
       // actually matches against your roster.
-      rows.push([e.uid, '', '', e.uid, '', '1']);
+      rows.push([e.uid, '', '', e.uid, 'utah.instructure.com', 'MATH 1050-008 Fall 2026', '1']);
     });
     const csv = rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
