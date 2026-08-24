@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MATH 1050-008 Attendance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#000000;
+    --surface:#161616;
+    --surface-2:#232323;
+    --line:#3A3A3A;
+    --ink:#FFFFFF;
+    --ink-dim:#9AA7AC;
+    --brass:#CC0000;
+    --brass-bright:#E8433A;
+    --danger:#890000;
+    --success:#3ABFC0;
+    --font-display:'Zilla Slab', Georgia, serif;
+    --font-body:'Inter', system-ui, sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 20px 60px;}
+
+  .masthead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid var(--line);padding-bottom:14px;margin-bottom:22px;}
+  .masthead h1{font-family:var(--font-display);font-weight:700;font-size:1.5rem;margin:0;letter-spacing:0.01em;}
+  .masthead .eyebrow{font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.12em;color:var(--brass);text-transform:uppercase;display:block;margin-bottom:4px;}
+
+  .tabs{display:flex;gap:2px;margin-bottom:20px;background:var(--surface-2);border-radius:10px;padding:4px;}
+  .tab{flex:1;text-align:center;padding:10px 14px;border-radius:7px;font-family:var(--font-body);font-weight:600;font-size:0.88rem;color:var(--ink-dim);cursor:pointer;user-select:none;transition:all .15s ease;}
+  .tab.active{background:var(--brass);color:#FFFFFF;}
+  .tab:focus-visible{outline:2px solid var(--brass-bright);outline-offset:2px;}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:16px;}
+  label{display:block;font-size:0.78rem;color:var(--ink-dim);margin-bottom:6px;font-weight:500;}
+  input[type=text],input[type=date],input[type=password]{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:11px 12px;font-family:var(--font-body);font-size:0.95rem;margin-bottom:14px;}
+  input:focus{outline:2px solid var(--brass);outline-offset:1px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+  button{font-family:var(--font-body);font-weight:600;font-size:0.9rem;border:none;border-radius:8px;padding:12px 18px;cursor:pointer;transition:transform .1s ease, opacity .15s ease;}
+  button:active{transform:scale(0.98);}
+  .btn-primary{background:var(--brass);color:#FFFFFF;width:100%;}
+  .btn-primary:hover{background:var(--brass-bright);}
+  .btn-ghost{background:transparent;color:var(--danger);border:1px solid var(--line);}
+  button:disabled{opacity:0.5;cursor:not-allowed;}
+
+  .stamp-zone{display:flex;flex-direction:column;align-items:center;padding:10px 0 4px;}
+  .ring{position:relative;width:220px;height:220px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+  .ring-track{position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--brass) calc(var(--progress,0)*1%), var(--surface-2) 0);transition:background .1s linear;}
+  .ring-inner{position:absolute;inset:9px;border-radius:50%;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .code-text{font-family:var(--font-mono);font-weight:700;font-size:2.1rem;letter-spacing:0.14em;color:var(--brass-bright);}
+  .code-sub{font-family:var(--font-mono);font-size:0.62rem;color:var(--ink-dim);margin-top:6px;letter-spacing:0.08em;}
+  .thud{animation:thud .35s ease;}
+  @keyframes thud{0%{transform:scale(1);}35%{transform:scale(1.06);box-shadow:0 0 0 6px rgba(228,194,75,0.12) inset;}100%{transform:scale(1);}}
+
+  .roster-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
+  .roster-head h2{font-family:var(--font-display);font-size:1.05rem;margin:0;}
+  .count{font-family:var(--font-mono);color:var(--brass);font-size:0.85rem;}
+  .roster{max-height:220px;overflow-y:auto;border-top:1px solid var(--line);}
+  .roster-row{display:flex;justify-content:space-between;padding:9px 2px;border-bottom:1px solid var(--line);font-size:0.88rem;}
+  .roster-row .time{color:var(--ink-dim);font-family:var(--font-mono);font-size:0.78rem;}
+  .empty{color:var(--ink-dim);font-size:0.85rem;padding:16px 2px;text-align:center;}
+
+  .status{border-radius:8px;padding:12px 14px;font-size:0.88rem;margin-bottom:14px;display:none;}
+  .status.show{display:block;}
+  .status.ok{background:rgba(58,191,192,0.14);color:var(--success);border:1px solid rgba(58,191,192,0.3);}
+  .status.err{background:rgba(137,0,0,0.18);color:#FF7A6E;border:1px solid rgba(137,0,0,0.4);}
+  .status.info{background:rgba(154,167,172,0.12);color:var(--ink-dim);border:1px solid var(--line);}
+
+  .fine{font-size:0.72rem;color:var(--ink-dim);line-height:1.5;margin-top:4px;}
+  .code-hint{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.08em;}
+
+  .setup-banner{background:#3A1414;border:1px solid #6B2020;color:#FFD8D0;border-radius:10px;padding:14px 16px;font-size:0.82rem;line-height:1.6;margin-bottom:16px;}
+  .setup-banner code{background:#000;padding:1px 5px;border-radius:4px;font-family:var(--font-mono);font-size:0.78rem;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="masthead">
+    <div>
+      <span class="eyebrow">Roll Call</span>
+      <h1>Attendance Ledger</h1>
+    </div>
+  </div>
+
+  <div class="setup-banner" id="setupBanner" style="display:none;">
+    This page isn't connected to a database yet. Edit <code>SUPABASE_CONFIG</code> near the top of the
+    <code>&lt;script&gt;</code> in this file with your own Supabase project details, then reload. See the
+    comment block right above it for step-by-step setup instructions.
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" id="tabInstructor" tabindex="0" role="button">Class Display</div>
+    <div class="tab" id="tabStudent" tabindex="0" role="button">Student Check-In</div>
+  </div>
+
+  <!-- INSTRUCTOR PANEL -->
+  <div class="panel active" id="panelInstructor">
+    <div class="card" id="lockCard">
+      <label for="pinInput">Instructor PIN</label>
+      <input type="password" id="pinInput" placeholder="Enter PIN" style="letter-spacing:0.2em;">
+      <div class="status err" id="pinStatus" style="display:none;">Incorrect PIN.</div>
+      <button class="btn-primary" id="unlockBtn">Unlock</button>
+    </div>
+
+    <div class="card" id="setupCard" style="display:none;">
+      <div class="row2">
+        <div>
+          <label for="className">Class name</label>
+          <input type="text" id="className" placeholder="e.g. HIST 210" value="MATH 1050-008">
+        </div>
+        <div>
+          <label for="sessDate">Date</label>
+          <input type="date" id="sessDate">
+        </div>
+      </div>
+      <label for="mathQuestion">Question students must answer</label>
+      <input type="text" id="mathQuestion" placeholder="e.g. What is 7 + 5?">
+      <label for="mathAnswer">Correct answer</label>
+      <input type="text" id="mathAnswer" placeholder="e.g. 12">
+      <button class="btn-primary" id="startBtn">Start session</button>
+      <p class="fine">The code refreshes every 20 seconds and only exists on this screen — students must be looking at it live to check in. They'll also need to answer the question above correctly.</p>
+    </div>
+
+    <div class="card" id="liveCard" style="display:none;">
+      <div class="stamp-zone">
+        <div class="ring" id="ring">
+          <div class="ring-track" id="ringTrack"></div>
+          <div class="ring-inner">
+            <div class="code-text" id="codeText">------</div>
+            <div class="code-sub" id="codeSub">refreshing…</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-ghost" id="endBtn" style="width:100%;margin-top:8px;">End session</button>
+    </div>
+
+    <div class="card" id="rosterCard" style="display:none;">
+      <div class="roster-head">
+        <h2>Checked in</h2>
+        <span class="count" id="rosterCount">0</span>
+      </div>
+      <div class="roster" id="rosterList"><div class="empty">No check-ins yet.</div></div>
+      <button class="btn-ghost" id="exportBtn" style="width:100%;margin-top:12px;color:var(--brass-bright);border-color:var(--line);" disabled>Export roster as CSV</button>
+    </div>
+  </div>
+
+  <!-- STUDENT PANEL -->
+  <div class="panel" id="panelStudent">
+    <div class="card">
+      <div class="status" id="studentStatus"></div>
+      <label>Today's question</label>
+      <div class="status info show" id="questionDisplay">Open this tab once the instructor starts a session to see the question.</div>
+      <label for="studentAnswer">Your answer</label>
+      <input type="text" id="studentAnswer" placeholder="Answer the question above">
+      <label for="studentUid">UID, e.g., u1234567</label>
+      <input type="text" id="studentUid" placeholder="u1234567">
+      <label for="studentCode">Code from the display</label>
+      <input type="text" id="studentCode" placeholder="e.g. 7K3PQR" style="text-transform:uppercase;">
+      <button class="btn-primary" id="checkinBtn">Check in</button>
+      <p class="fine">The code only stays valid for about 20 seconds, so it has to come from the display in the room right now.</p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// ============================================================================
+// SUPABASE SETUP — do this once before the page will work.
+//
+// 1. Go to https://supabase.com, sign up (free), and create a New Project.
+//    Pick any name, set a database password (you won't need it again for this),
+//    pick any region, and click Create. Wait a minute or two while it provisions.
+// 2. Once it's ready, open the SQL Editor (left sidebar) and run this, then
+//    click "Run":
+//
+//      create table kv (
+//        key text primary key,
+//        value text
+//      );
+//      alter table kv disable row level security;
+//
+//    Heads up: disabling row-level security makes this table readable and
+//    writable by anyone with your project's API key — same "casual
+//    deterrent, not real security" trust level as the PIN already on this
+//    page. Fine for a low-stakes classroom tool; don't store anything
+//    sensitive in it.
+// 3. In the left sidebar go to Project Settings > API. Copy the "Project URL"
+//    and the "anon public" API key.
+// 4. Paste both into SUPABASE_CONFIG below.
+// 5. Push this file to your GitHub repo. GitHub Pages serves static files
+//    directly, so no build step is needed.
+// ============================================================================
+const SUPABASE_CONFIG = {
+  url: "https://bikaitqtujxjopnftljz.supabase.co",
+  anonKey: "sb_publishable_nz6lcgbV_KV1I4qu9ZSYxw_i00n9_Q_"
+};
+
+const configIsPlaceholder = SUPABASE_CONFIG.url === "PASTE_YOUR_PROJECT_URL";
+if(configIsPlaceholder){
+  document.getElementById('setupBanner').style.display = 'block';
+}
+
+const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+
+// Thin wrapper so the rest of this file can read/write data the same way
+// regardless of what's powering it underneath.
+async function storageGet(key){
+  const { data, error } = await supabase.from('kv').select('value').eq('key', key).maybeSingle();
+  if(error){ console.error('storage get failed', error); return null; }
+  if(!data) return null;
+  return { key, value: data.value };
+}
+async function storageSet(key, value){
+  const { error } = await supabase.from('kv').upsert({ key, value });
+  if(error){ console.error('storage set failed', error); throw error; }
+  return { key, value };
+}
+async function storageList(prefix){
+  const { data, error } = await supabase.from('kv').select('key').like('key', prefix + '%');
+  if(error){ console.error('storage list failed', error); return { keys: [] }; }
+  return { keys: (data || []).map(row => row.key) };
+}
+
+(function(){
+  const ROTATE_MS = 20000;
+  const CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"; // no 0/O/1/I/L
+
+  function todayStr(){
+    const d = new Date();
+    const off = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - off*60000);
+    return local.toISOString().slice(0,10);
+  }
+  function genCode(){
+    let s = "";
+    for(let i=0;i<6;i++) s += CHARS[Math.floor(Math.random()*CHARS.length)];
+    return s;
+  }
+  function genSessionId(){
+    let s = "";
+    for(let i=0;i<8;i++) s += CHARS[Math.floor(Math.random()*CHARS.length)];
+    return s;
+  }
+  function fmtTime(ts){
+    return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+  function sanitize(name){
+    return name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,60);
+  }
+
+  // ---------- Tabs ----------
+  const tabInstructor = document.getElementById('tabInstructor');
+  const tabStudent = document.getElementById('tabStudent');
+  const panelInstructor = document.getElementById('panelInstructor');
+  const panelStudent = document.getElementById('panelStudent');
+  function showTab(which){
+    const inst = which === 'instructor';
+    tabInstructor.classList.toggle('active', inst);
+    tabStudent.classList.toggle('active', !inst);
+    panelInstructor.classList.toggle('active', inst);
+    panelStudent.classList.toggle('active', !inst);
+  }
+  tabInstructor.addEventListener('click', ()=>showTab('instructor'));
+  tabStudent.addEventListener('click', ()=>{ showTab('student'); loadQuestion(); });
+  [tabInstructor, tabStudent].forEach(t=>{
+    t.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ') t.click(); });
+  });
+
+  document.getElementById('sessDate').value = todayStr();
+
+  // ---------- Instructor: PIN lock ----------
+  // To change the PIN: compute the SHA-256 hex digest of your new PIN and paste it below.
+  // In any browser console: crypto.subtle.digest('SHA-256', new TextEncoder().encode('yourPIN'))
+  //   .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+  // This still isn't real security — it just stops casual view-source snooping.
+  const INSTRUCTOR_PIN_HASH = "58f7026c96568f1330f6a05c604aa770e66b1b04e8d463936da8fb95fdf3296a";
+  const lockCard = document.getElementById('lockCard');
+  const pinInput = document.getElementById('pinInput');
+  const pinStatus = document.getElementById('pinStatus');
+  const unlockBtn = document.getElementById('unlockBtn');
+
+  let failedAttempts = 0;
+  let lockedUntil = 0;
+  const MAX_ATTEMPTS = 5;
+  const LOCKOUT_MS = 30000;
+
+  async function sha256Hex(text){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function tryUnlock(){
+    const now = Date.now();
+    if(now < lockedUntil){
+      const secsLeft = Math.ceil((lockedUntil - now) / 1000);
+      pinStatus.textContent = 'Too many attempts — try again in ' + secsLeft + 's.';
+      pinStatus.style.display = 'block';
+      return;
+    }
+    unlockBtn.disabled = true;
+    const hash = await sha256Hex(pinInput.value.trim());
+    unlockBtn.disabled = false;
+    if(hash === INSTRUCTOR_PIN_HASH){
+      failedAttempts = 0;
+      lockCard.style.display = 'none';
+      document.getElementById('setupCard').style.display = 'block';
+      pinStatus.style.display = 'none';
+    } else {
+      failedAttempts++;
+      pinInput.value = '';
+      if(failedAttempts >= MAX_ATTEMPTS){
+        lockedUntil = Date.now() + LOCKOUT_MS;
+        failedAttempts = 0;
+        pinStatus.textContent = 'Too many attempts — try again in ' + Math.ceil(LOCKOUT_MS/1000) + 's.';
+      } else {
+        pinStatus.textContent = 'Incorrect PIN.';
+      }
+      pinStatus.style.display = 'block';
+    }
+  }
+  unlockBtn.addEventListener('click', tryUnlock);
+  pinInput.addEventListener('keydown', e=>{ if(e.key === 'Enter') tryUnlock(); });
+
+  // ---------- Instructor: session control ----------
+  const setupCard = document.getElementById('setupCard');
+  const liveCard = document.getElementById('liveCard');
+  const rosterCard = document.getElementById('rosterCard');
+  const startBtn = document.getElementById('startBtn');
+  const endBtn = document.getElementById('endBtn');
+  const ring = document.getElementById('ring');
+  const ringTrack = document.getElementById('ringTrack');
+  const codeText = document.getElementById('codeText');
+  const codeSub = document.getElementById('codeSub');
+
+  const rosterList = document.getElementById('rosterList');
+  const rosterCount = document.getElementById('rosterCount');
+  const exportBtn = document.getElementById('exportBtn');
+
+  let rotateTimer = null;
+  let tickTimer = null;
+  let rosterTimer = null;
+  let currentSession = null; // {className, date, code, generatedAt, expiresAt}
+  let currentRoster = []; // last-fetched entries, kept for CSV export
+  let sessionActive = false;
+  let activeSessionId = null;
+
+  async function writeSession(session){
+    try{
+      await storageSet('session:current', JSON.stringify(session));
+    }catch(e){ console.error('storage set failed', e); }
+  }
+
+  function rotateCode(){
+    const now = Date.now();
+    currentSession = {
+      className: document.getElementById('className').value.trim() || 'Untitled class',
+      date: document.getElementById('sessDate').value || todayStr(),
+      question: document.getElementById('mathQuestion').value.trim(),
+      answer: document.getElementById('mathAnswer').value.trim(),
+      sessionId: activeSessionId,
+      code: genCode(),
+      generatedAt: now,
+      expiresAt: now + ROTATE_MS
+    };
+    writeSession(currentSession);
+    codeText.textContent = currentSession.code;
+    codeText.closest('.ring-inner').classList.remove('thud');
+    void codeText.offsetWidth;
+    codeText.closest('.ring-inner').classList.add('thud');
+  }
+
+  function tickRing(){
+    if(!currentSession) return;
+    const now = Date.now();
+    const pct = Math.max(0, Math.min(100, 100 - ((now - currentSession.generatedAt) / ROTATE_MS) * 100));
+    ringTrack.style.setProperty('--progress', pct.toFixed(1));
+    const secsLeft = Math.max(0, Math.ceil((currentSession.expiresAt - now)/1000));
+    codeSub.textContent = secsLeft + 's until next code';
+  }
+
+  async function refreshRoster(){
+    if(!currentSession) return;
+    try{
+      const prefix = 'attendance:' + currentSession.date + ':' + currentSession.sessionId + ':';
+      const listing = await storageList(prefix);
+      if(!listing || !listing.keys || listing.keys.length === 0){
+        rosterList.innerHTML = '<div class="empty">No check-ins yet.</div>';
+        rosterCount.textContent = '0';
+        currentRoster = [];
+        exportBtn.disabled = true;
+        return;
+      }
+      const entries = [];
+      for(const k of listing.keys){
+        try{
+          const r = await storageGet(k);
+          if(r && r.value) entries.push(JSON.parse(r.value));
+        }catch(e){ /* skip missing */ }
+      }
+      entries.sort((a,b)=> a.time - b.time);
+      rosterCount.textContent = String(entries.length);
+      rosterList.innerHTML = entries.map(e =>
+        '<div class="roster-row"><span>'+escapeHtml(e.uid)+'</span><span class="time">'+fmtTime(e.time)+'</span></div>'
+      ).join('');
+      currentRoster = entries;
+      exportBtn.disabled = sessionActive || entries.length === 0;
+    }catch(e){ console.error('roster refresh failed', e); }
+  }
+
+  function csvEscape(val){
+    const s = String(val);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }
+
+  function exportCsv(){
+    if(!currentSession || currentRoster.length === 0) return;
+    const assignmentName = currentSession.className + ' Attendance ' + currentSession.date;
+    const rows = [['Student','ID','SIS User ID','SIS Login ID','Section', assignmentName]];
+    currentRoster.forEach(e=>{
+      // "Student" just needs at least one letter for Canvas to accept the row — since we
+      // only collect UIDs, not names, the UID goes there too. SIS Login ID is what Canvas
+      // actually matches against your roster.
+      rows.push([e.uid, '', '', e.uid, '', '1']);
+    });
+    const csv = rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeClass = sanitize(currentSession.className || 'class');
+    a.href = url;
+    a.download = 'canvas-attendance-' + safeClass + '-' + currentSession.date + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  exportBtn.addEventListener('click', exportCsv);
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  startBtn.addEventListener('click', ()=>{
+    const q = document.getElementById('mathQuestion').value.trim();
+    const a = document.getElementById('mathAnswer').value.trim();
+    if(!q || !a){
+      alert('Enter both a question and its correct answer before starting the session.');
+      return;
+    }
+    setupCard.style.display = 'none';
+    liveCard.style.display = 'block';
+    rosterCard.style.display = 'block';
+    sessionActive = true;
+    activeSessionId = genSessionId();
+    exportBtn.disabled = true;
+    rotateCode();
+    rotateTimer = setInterval(rotateCode, ROTATE_MS);
+    tickTimer = setInterval(tickRing, 100);
+    rosterTimer = setInterval(refreshRoster, 4000);
+    refreshRoster();
+  });
+
+  endBtn.addEventListener('click', async ()=>{
+    clearInterval(rotateTimer); clearInterval(tickTimer); clearInterval(rosterTimer);
+    sessionActive = false;
+    liveCard.style.display = 'none';
+    setupCard.style.display = 'block';
+    await refreshRoster();
+  });
+
+  // ---------- Student: check-in ----------
+  const uidInput = document.getElementById('studentUid');
+  const codeInput = document.getElementById('studentCode');
+  const answerInput = document.getElementById('studentAnswer');
+  const questionDisplay = document.getElementById('questionDisplay');
+  const checkinBtn = document.getElementById('checkinBtn');
+  const statusBox = document.getElementById('studentStatus');
+
+  async function loadQuestion(){
+    try{
+      const r = await storageGet('session:current');
+      if(r && r.value){
+        const session = JSON.parse(r.value);
+        const now = Date.now();
+        if(now <= session.expiresAt && session.question){
+          questionDisplay.textContent = session.question;
+          return;
+        }
+      }
+      questionDisplay.textContent = 'No active session right now. Ask your instructor.';
+    }catch(e){
+      questionDisplay.textContent = 'Could not load the question — try reopening this tab.';
+    }
+  }
+
+  function normalizeAnswer(s){
+    return s.trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+  function answersMatch(given, expected){
+    const g = normalizeAnswer(given), e = normalizeAnswer(expected);
+    if(g === e) return true;
+    const gn = parseFloat(g), en = parseFloat(e);
+    return !isNaN(gn) && !isNaN(en) && Math.abs(gn - en) < 1e-9;
+  }
+
+  function setStatus(kind, msg){
+    statusBox.className = 'status show ' + kind;
+    statusBox.textContent = msg;
+  }
+
+  function deviceAlreadyChecked(sessionId){
+    try{ return !!localStorage.getItem('attendance_checked_' + sessionId); }
+    catch(e){ return false; }
+  }
+  function markDeviceChecked(sessionId){
+    try{ localStorage.setItem('attendance_checked_' + sessionId, '1'); }
+    catch(e){ /* storage unavailable — single-use code still applies */ }
+  }
+
+  checkinBtn.addEventListener('click', async ()=>{
+    const uid = uidInput.value.trim();
+    const code = codeInput.value.trim().toUpperCase();
+    const answer = answerInput.value.trim();
+    if(!uid){ setStatus('err', 'Enter your UID first.'); return; }
+    if(!answer){ setStatus('err', 'Answer the question above.'); return; }
+    if(!code){ setStatus('err', 'Enter the code shown on the display.'); return; }
+
+    checkinBtn.disabled = true;
+    let success = false;
+    try{
+      const r = await storageGet('session:current');
+      if(!r || !r.value){
+        setStatus('err', 'No active session found. Ask your instructor to start one.');
+        return;
+      }
+      const session = JSON.parse(r.value);
+      const deviceKey = session.sessionId;
+      if(deviceAlreadyChecked(deviceKey)){
+        setStatus('err', "This device already checked in for this session. If that wasn't you, tell your instructor.");
+        return;
+      }
+      const now = Date.now();
+      if(now > session.expiresAt){
+        setStatus('err', 'That code just expired — grab the new one from the display.');
+        return;
+      }
+      if(code !== session.code){
+        setStatus('err', "That code doesn't match what's on the display right now.");
+        return;
+      }
+      if(!answersMatch(answer, session.answer)){
+        setStatus('err', "That answer doesn't look right — check the question and try again.");
+        return;
+      }
+      const key = 'attendance:' + session.date + ':' + session.sessionId + ':' + sanitize(uid);
+      await storageSet(key, JSON.stringify({uid, time: now, code}));
+      markDeviceChecked(deviceKey);
+      setStatus('ok', "You're marked present for " + session.className + '. Nice.');
+      uidInput.disabled = true;
+      codeInput.disabled = true;
+      answerInput.disabled = true;
+      checkinBtn.textContent = 'Checked in ✓';
+      success = true;
+    }catch(e){
+      console.error(e);
+      setStatus('err', 'Something went wrong saving your check-in — try again.');
+    }finally{
+      checkinBtn.disabled = success;
+    }
+  });
+})();
+</script>
+</body>
+</html>
