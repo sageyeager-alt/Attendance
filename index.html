@@ -559,14 +559,6 @@ async function storageList(prefix){
         setStatus('err', "That answer doesn't look right — check the question and try again.");
         return;
       }
-      const usedKey = 'codeused:' + session.date + ':' + session.sessionId + ':' + session.code;
-      let already = null;
-      try{ already = await storageGet(usedKey); }catch(e){ already = null; }
-      if(already && already.value){
-        setStatus('err', 'Someone already checked in with this exact code — wait for the display to refresh and use the new one.');
-        return;
-      }
-      await storageSet(usedKey, JSON.stringify({time: now}));
       const key = 'attendance:' + session.date + ':' + session.sessionId + ':' + sanitize(name);
       await storageSet(key, JSON.stringify({name, time: now, code}));
       markDeviceChecked(deviceKey);
