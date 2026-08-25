@@ -539,7 +539,7 @@ async function storageList(prefix){
   }
 
   checkinBtn.addEventListener('click', async ()=>{
-    const uid = uidInput.value.trim();
+    const uid = uidInput.value.trim().toLowerCase();
     const code = codeInput.value.trim().toUpperCase();
     const answer = answerInput.value.trim();
     if(!uid){ setStatus('err', 'Enter your UID first.'); return; }
