@@ -111,6 +111,13 @@
       <button class="btn-primary" id="unlockBtn">Unlock</button>
     </div>
 
+    <div class="card" id="rosterCardSetup" style="display:none;">
+      <label for="rosterFileInput">Class roster (optional) — upload a CSV with columns <span class="code-hint">ID, First Name</span></label>
+      <input type="file" id="rosterFileInput" accept=".csv,text/csv" style="width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:10px 12px;font-family:var(--font-body);font-size:0.85rem;margin-bottom:10px;">
+      <button class="btn-ghost" id="saveRosterBtn" style="width:100%;color:var(--brass-bright);border-color:var(--line);">Save roster</button>
+      <p class="fine" id="rosterStatus">No roster saved yet — check-in will accept any UID until you add one.</p>
+    </div>
+
     <div class="card" id="setupCard" style="display:none;">
       <div class="row2">
         <div>
@@ -314,7 +321,9 @@ async function storageList(prefix){
       failedAttempts = 0;
       lockCard.style.display = 'none';
       document.getElementById('setupCard').style.display = 'block';
+      document.getElementById('rosterCardSetup').style.display = 'block';
       pinStatus.style.display = 'none';
+      loadRosterStatus();
     } else {
       failedAttempts++;
       pinInput.value = '';
@@ -353,6 +362,76 @@ async function storageList(prefix){
   let currentRoster = []; // last-fetched entries, kept for CSV export
   let sessionActive = false;
   let activeSessionId = null;
+
+  // ---------- Instructor: class roster (UID -> first name) ----------
+  const rosterFileInput = document.getElementById('rosterFileInput');
+  const saveRosterBtn = document.getElementById('saveRosterBtn');
+  const rosterStatus = document.getElementById('rosterStatus');
+
+  function parseRosterText(text){
+    const map = {};
+    text.split('\n').forEach(line=>{
+      const trimmed = line.trim();
+      if(!trimmed) return;
+      const commaIdx = trimmed.indexOf(',');
+      if(commaIdx === -1) return;
+      const uid = trimmed.slice(0, commaIdx).trim().toLowerCase();
+      const namePart = trimmed.slice(commaIdx + 1).trim();
+      const firstName = namePart.split(/\s+/)[0] || '';
+      if(uid && firstName) map[uid] = firstName;
+    });
+    return map;
+  }
+
+  function parseRosterCsv(text){
+    const lines = text.split(/\r\n|\n|\r/).map(l => l.trim()).filter(l => l.length > 0);
+    // Drop a header row like "ID, First Name" if the file has one.
+    if(lines.length && /^"?(u?id)"?\s*,/i.test(lines[0])){
+      lines.shift();
+    }
+    return parseRosterText(lines.join('\n'));
+  }
+
+  async function loadRosterStatus(){
+    try{
+      const r = await storageGet('roster');
+      if(r && r.value){
+        const map = JSON.parse(r.value);
+        const count = Object.keys(map).length;
+        rosterStatus.textContent = 'Currently saved: ' + count + ' student' + (count === 1 ? '' : 's') + '.';
+      } else {
+        rosterStatus.textContent = 'No roster saved yet — check-in will accept any UID until you add one.';
+      }
+    }catch(e){
+      rosterStatus.textContent = 'Could not load roster status.';
+    }
+  }
+
+  saveRosterBtn.addEventListener('click', async ()=>{
+    const file = rosterFileInput.files[0];
+    if(!file){
+      alert('Choose a CSV file first.');
+      return;
+    }
+    saveRosterBtn.disabled = true;
+    try{
+      const text = await file.text();
+      const map = parseRosterCsv(text);
+      const count = Object.keys(map).length;
+      if(count === 0){
+        alert('No valid rows found. Each row should look like: u1234567, Gizele');
+        return;
+      }
+      await storageSet('roster', JSON.stringify(map));
+      rosterStatus.textContent = 'Currently saved: ' + count + ' student' + (count === 1 ? '' : 's') + '.';
+      rosterFileInput.value = '';
+    }catch(e){
+      console.error(e);
+      alert('Could not read or save that file — make sure it\'s a plain CSV, then try again.');
+    }finally{
+      saveRosterBtn.disabled = false;
+    }
+  });
 
   async function writeSession(session){
     try{
@@ -437,10 +516,15 @@ async function storageList(prefix){
       ['Points Possible','', '', '', '', '', '1']
     ];
     currentRoster.forEach(e=>{
+      // Some records may have been saved by an older cached version of this page,
+      // back when this field was called "name" instead of "uid" — fall back to that
+      // rather than exporting the literal word "undefined".
+      const uid = e.uid || e.name;
+      if(!uid) return;
       // ID (Canvas's internal numeric ID) is safe to leave blank. Student needs at least
       // one character for Canvas to reliably accept and match the row, so the UID goes
       // there too — SIS User ID and SIS Login ID are what Canvas actually matches on.
-      rows.push([e.uid, '', e.uid, e.uid, 'utah.instructure.com', 'MATH 1050-008 Fall 2026', '1']);
+      rows.push([uid, '', uid, uid, 'utah.instructure.com', 'MATH 1050-008 Fall 2026', '1']);
     });
     const csv = rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
@@ -546,6 +630,24 @@ async function storageList(prefix){
     if(!answer){ setStatus('err', 'Answer the question above.'); return; }
     if(!code){ setStatus('err', 'Enter the code shown on the display.'); return; }
 
+    let firstName = null;
+    try{
+      const rosterResult = await storageGet('roster');
+      if(rosterResult && rosterResult.value){
+        const roster = JSON.parse(rosterResult.value);
+        if(Object.prototype.hasOwnProperty.call(roster, uid)){
+          firstName = roster[uid];
+        } else {
+          setStatus('err', 'Are you sure this uID is correct?');
+          return;
+        }
+      }
+      // If no roster has been saved yet, skip this check entirely.
+    }catch(e){
+      console.error('roster check failed', e);
+      // Don't block check-in just because the roster lookup failed.
+    }
+
     checkinBtn.disabled = true;
     let success = false;
     try{
@@ -576,7 +678,7 @@ async function storageList(prefix){
       const key = 'attendance:' + session.date + ':' + session.sessionId + ':' + sanitize(uid);
       await storageSet(key, JSON.stringify({uid, time: now, code}));
       markDeviceChecked(deviceKey);
-      setStatus('ok', "You're marked present for " + session.className + '. Nice.');
+      setStatus('ok', firstName ? ("You're checked in, " + firstName + "!") : "You're checked in. Nice.");
       uidInput.disabled = true;
       codeInput.disabled = true;
       answerInput.disabled = true;
